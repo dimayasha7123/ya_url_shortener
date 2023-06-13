@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option go_package = "github.com/dimayasha7123/ya_url_shortener/api";
+
+package api;
+
+message OriginalURL {
+  string URL = 1;
+}
+
+message ShortURL {
+  string URL = 1;
+}
+
+service URLShortener {
+  rpc Shorten(OriginalURL) returns(ShortURL);
+  rpc GetOriginal(ShortURL) returns(OriginalURL);
+}

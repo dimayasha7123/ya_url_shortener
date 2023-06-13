@@ -1,0 +1,70 @@
+version: "3.8"
+volumes:
+  data:
+services:
+  db:
+    image: postgres:13.3
+    restart: always
+    ports:
+      - ${POSTGRES_PORT}:5432
+    volumes:
+      - data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
+  goose:
+    build:
+      dockerfile: goose.dockerfile
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+  shortener_http:
+    build:
+      dockerfile: http_server.dockerfile
+    command:
+      - "-node=${NODE_HTTP}"
+      - "-host=${SERVER_HOST}"
+      - "-port=${SERVER_HTTP_PORT}"
+      - "-repo=${REPO}"
+      - "-postgres_dsn=host=${POSTGRES_HOST} port=${POSTGRES_PORT} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB} sslmode=disable"
+    env_file:
+      - .env
+    ports:
+      - ${SERVER_HTTP_PORT}:${SERVER_HTTP_PORT}
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      goose:
+        condition: service_completed_successfully
+  shortener_grpc:
+    build:
+      dockerfile: grpc_server.dockerfile
+    command:
+      - "-node=${NODE_GRPC}"
+      - "-host=${SERVER_HOST}"
+      - "-port=${SERVER_GRPC_PORT}"
+      - "-repo=${REPO}"
+      - "-postgres_dsn=host=${POSTGRES_HOST} port=${POSTGRES_PORT} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB} sslmode=disable"
+    env_file:
+      - .env
+    ports:
+      - ${SERVER_GRPC_PORT}:${SERVER_GRPC_PORT}
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      goose:
+        condition: service_completed_successfully
+
